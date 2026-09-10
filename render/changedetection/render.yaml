@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: watchdocs-monitor
+    runtime: docker
+    repo: https://github.com/dgtlmoon/changedetection.io
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: SALTED_PASS
+        generateValue: true
+      - key: INTERNAL_SECRET
+        generateValue: true
