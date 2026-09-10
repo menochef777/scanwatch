@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection: user can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // IP hashes collection: strictly backend-only (Firebase Admin SDK bypasses security rules)
+    match /ips/{ipHash} {
+      allow read, write: if false;
+    }
+
+    // Fingerprint hashes collection: strictly backend-only (Firebase Admin SDK bypasses security rules)
+    match /fingerprints/{fpHash} {
+      allow read, write: if false;
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
