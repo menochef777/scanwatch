@@ -48,15 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const docRef = doc(db, 'users', currentUser.uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setProfile(docSnap.data() as UserProfile);
+      const res = await fetch(`/api/user-profile?uid=${currentUser.uid}&email=${encodeURIComponent(currentUser.email || '')}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data as UserProfile);
       } else {
         setProfile({ plan: 'free' });
       }
     } catch (err) {
-      console.warn('Could not fetch user profile from Firestore:', err);
+      console.warn('Could not fetch user profile:', err);
+      setProfile({ plan: 'free' });
     }
   };
 

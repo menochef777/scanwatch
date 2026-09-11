@@ -342,6 +342,47 @@ export default function HomePage() {
         {/* SEÇÃO 3: APP (Aparece se logado E email verificado) */}
         {isAuthenticatedAndVerified && (
           <div className="w-full max-w-4xl mx-auto">
+            {/* Plan Status Banner */}
+            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md shadow-lg gap-3">
+              <div className="flex items-center space-x-3">
+                {profile?.plan === 'pro' ? (
+                  <>
+                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-sm text-white">PRO Plan Active</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-indigo-500 text-white tracking-wider uppercase shadow-sm">
+                          UNLIMITED
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        Zero trial limits • Unlimited page monitoring & document OCR
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-sm text-white">Free Trial Account</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                          1 MONITOR • 1 OCR
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        Free tier • Multi-layer anti-abuse trial protection active
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* Tabs Selector */}
             <div className="flex border-b border-slate-800 mb-8">
               <button
