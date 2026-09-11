@@ -2,12 +2,21 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import { getFingerprintHash } from '../lib/fingerprint';
 import { signUp, signIn, signOutUser } from '../lib/auth';
 
+export interface UserProfile {
+  plan?: string;
+  role?: string;
+  trialMonitorUsed?: boolean;
+  trialOCRUsed?: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
+  profile: UserProfile | null;
   loading: boolean;
   fingerprintHash: string;
   signUp: (email: string, pass: string) => Promise<User>;
@@ -18,6 +27,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  profile: null,
   loading: true,
   fingerprintHash: '',
   signUp: async () => { throw new Error('AuthContext not initialized'); },
@@ -28,8 +38,27 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [fingerprintHash, setFingerprintHash] = useState<string>('');
+
+  const fetchProfile = async (currentUser: User | null) => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+    try {
+      const docRef = doc(db, 'users', currentUser.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setProfile(docSnap.data() as UserProfile);
+      } else {
+        setProfile({ plan: 'free' });
+      }
+    } catch (err) {
+      console.warn('Could not fetch user profile from Firestore:', err);
+    }
+  };
 
   useEffect(() => {
     // 1. Initialize device fingerprint hash on mount
@@ -42,8 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
     // 2. Subscribe to Firebase auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      await fetchProfile(currentUser);
       setLoading(false);
     });
 
@@ -54,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (auth.currentUser) {
       await auth.currentUser.reload();
       setUser(auth.currentUser);
+      await fetchProfile(auth.currentUser);
     }
   };
 
@@ -78,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        profile,
         loading,
         fingerprintHash,
         signUp: handleSignUp,

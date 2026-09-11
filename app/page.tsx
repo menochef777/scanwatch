@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, loading: authLoading, fingerprintHash, signUp, signIn, signOut } = useAuth();
+  const { user, profile, loading: authLoading, fingerprintHash, signUp, signIn, signOut } = useAuth();
 
   // Auth Modal State
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -240,7 +240,14 @@ export default function HomePage() {
             ) : isAuthenticatedAndVerified ? (
               <div className="flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
-                  <span className="text-xs text-slate-400 block">Signed in as</span>
+                  <div className="flex items-center space-x-1.5 justify-end">
+                    <span className="text-xs text-slate-400">Signed in as</span>
+                    {profile?.plan === 'pro' && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500 to-indigo-500 text-white uppercase tracking-wider shadow-sm">
+                        PRO
+                      </span>
+                    )}
+                  </div>
                   <span className="text-sm font-medium text-slate-200">{user?.email}</span>
                 </div>
                 <button
