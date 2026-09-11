@@ -82,8 +82,8 @@ export async function executeRunMonitor({
     const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/api/v1/watch`, {
       method: 'POST',
       headers: {
+        'x-api-key': process.env.CHANGEDETECTION_INTERNAL_TOKEN || process.env.CHANGEDETECTION_INTERNAL_SECRET || '',
         'Content-Type': 'application/json',
-        'x-api-key': token,
       },
       body: JSON.stringify({
         url: urlCheck.normalizedUrl,

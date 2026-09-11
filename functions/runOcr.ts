@@ -123,16 +123,19 @@ export async function executeRunOcr({
   }
 
   try {
+    const cleanBase64 = fileBase64.split(',').pop() || fileBase64;
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const blob = new Blob([buffer], { type: normalizedMime });
+    const formData = new FormData();
+    formData.append('file', blob, 'document');
+    formData.append('x-internal-token', process.env.PADDLEOCR_INTERNAL_TOKEN || process.env.PADDLEOCR_INTERNAL_SECRET || '');
+
     const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/ocr`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-Token': token,
+        'X-Internal-Token': process.env.PADDLEOCR_INTERNAL_TOKEN || process.env.PADDLEOCR_INTERNAL_SECRET || '',
       },
-      body: JSON.stringify({
-        base64: fileBase64,
-        mimeType: normalizedMime,
-      }),
+      body: formData,
     });
 
     if (response.status === 401) {
