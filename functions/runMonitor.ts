@@ -69,7 +69,11 @@ export async function executeRunMonitor({
   // Step 1: Validate URL first before reserving trial resources
   const urlCheck = validateTargetUrl(url);
   if (!urlCheck.isValid || !urlCheck.normalizedUrl) {
-    return {\n      success: false,\n      status: 400,\n      error: urlCheck.error || 'Invalid target URL',\n    };
+    return {
+      success: false,
+      status: 400,
+      error: urlCheck.error || 'Invalid target URL',
+    };
   }
 
   // Step 2: Validate 3-layer anti-abuse trial check
