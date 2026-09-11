@@ -42,6 +42,8 @@ export async function sendEmailAlert({
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        Origin: 'https://scanwatch8.vercel.app',
+        Referer: 'https://scanwatch8.vercel.app/',
       },
       body: JSON.stringify(payload),
     });
