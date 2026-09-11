@@ -1,5 +1,6 @@
 import os
 import io
+import threading
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File
 import paddle
@@ -13,26 +14,48 @@ INTERNAL_SECRET = os.getenv("INTERNAL_SECRET", "dev_secret")
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "application/pdf"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
-# Initialize PaddleOCR engine at runtime startup
+ocr_engine = None
 init_error = None
-try:
-    ocr_engine = PaddleOCR(use_angle_cls=True, lang="en")
-    print(f"[PaddleOCR] Engine initialized successfully. PaddlePaddle version: {paddle.__version__}")
-except Exception as e:
-    init_error = str(e)
-    print(f"[PaddleOCR ERROR] Failed to initialize PaddleOCR engine: {e}")
-    ocr_engine = None
+is_initializing = False
+init_lock = threading.Lock()
+
+def initialize_engine():
+    global ocr_engine, init_error, is_initializing
+    with init_lock:
+        if ocr_engine is not None:
+            return ocr_engine
+        try:
+            is_initializing = True
+            print(f"[PaddleOCR] Initializing PaddleOCR engine (PaddlePaddle version: {paddle.__version__})...")
+            # Initialize real PaddleOCR engine with English language and angle classification
+            ocr_engine = PaddleOCR(use_angle_cls=True, lang="en")
+            print(f"[PaddleOCR] Engine initialized successfully.")
+            init_error = None
+            return ocr_engine
+        except Exception as e:
+            init_error = str(e)
+            print(f"[PaddleOCR ERROR] Failed to initialize PaddleOCR engine: {e}")
+            ocr_engine = None
+            return None
+        finally:
+            is_initializing = False
+
+@app.on_event("startup")
+def startup_event():
+    # Start initialization in a background thread so uvicorn binds to the port immediately
+    thread = threading.Thread(target=initialize_engine, daemon=True)
+    thread.start()
 
 @app.get("/health")
 def health():
     return {
-        "status": "ok" if ocr_engine is not None else "error",
+        "status": "ok" if ocr_engine is not None else ("initializing" if is_initializing else "error"),
         "service": "paddleocr-microservice",
         "paddle_version": getattr(paddle, "__version__", "unknown"),
         "engine_ready": ocr_engine is not None,
+        "is_initializing": is_initializing,
         "init_error": init_error,
     }
-
 
 @app.post("/ocr")
 async def extract_text(
@@ -43,11 +66,12 @@ async def extract_text(
     if not x_internal_token or x_internal_token != INTERNAL_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing X-Internal-Token")
 
-    # 2. Check engine readiness
-    if ocr_engine is None:
+    # 2. Check engine readiness (or initialize if ready)
+    engine = ocr_engine or initialize_engine()
+    if engine is None:
         raise HTTPException(
             status_code=503,
-            detail=f"PaddleOCR engine failed to initialize on startup: {init_error}" if init_error else "PaddleOCR engine failed to initialize on startup."
+            detail=f"PaddleOCR engine failed to initialize: {init_error}" if init_error else "PaddleOCR engine is initializing. Please retry in a moment."
         )
 
     # 3. Validate file upload
@@ -71,7 +95,7 @@ async def extract_text(
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         image_np = np.array(image)
         
-        result = ocr_engine.ocr(image_np, cls=True)
+        result = engine.ocr(image_np, cls=True)
 
         extracted_lines = []
         confidences = []
