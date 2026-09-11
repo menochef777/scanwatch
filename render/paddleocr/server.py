@@ -35,13 +35,14 @@ def initialize_engine_background():
             from paddleocr import PaddleOCR
             
             print(f"[PaddleOCR] Loading PaddleOCR engine (PaddlePaddle version: {paddle_version})...")
-            # Use lightweight CPU config with 1280 limit to guarantee stable memory within 512MB RAM
+            # Use lightweight CPU config with 960 limit and sequential recognition batch (rec_batch_num=1) to stay within 512MB RAM
             engine_instance = PaddleOCR(
                 use_angle_cls=False,
                 lang="en",
                 enable_mkldnn=False,
                 show_log=False,
-                det_limit_side_len=1280
+                det_limit_side_len=960,
+                rec_batch_num=1
             )
             
             ocr_engine = engine_instance
@@ -132,11 +133,11 @@ async def extract_text(
     try:
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         
-        # Proportional resize if max side > 1280 to preserve memory under 512MB RAM
+        # Proportional resize if max side > 960 to preserve memory under 512MB RAM
         width, height = image.size
         max_side = max(width, height)
-        if max_side > 1280:
-            scale = 1280.0 / float(max_side)
+        if max_side > 960:
+            scale = 960.0 / float(max_side)
             new_width = max(1, int(width * scale))
             new_height = max(1, int(height * scale))
             image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
