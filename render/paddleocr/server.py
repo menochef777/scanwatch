@@ -35,7 +35,8 @@ def initialize_engine_background():
             from paddleocr import PaddleOCR
             
             print(f"[PaddleOCR] Loading PaddleOCR engine (PaddlePaddle version: {paddle_version})...")
-            engine_instance = PaddleOCR(use_angle_cls=True, lang="en")
+            # Use lightweight CPU config (no angle cls, disable mkldnn buffer bloat) to stay well under 512MB RAM
+            engine_instance = PaddleOCR(use_angle_cls=False, lang="en", enable_mkldnn=False, show_log=False)
             
             ocr_engine = engine_instance
             init_error = None
@@ -126,7 +127,7 @@ async def extract_text(
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         image_np = np.array(image)
         
-        result = ocr_engine.ocr(image_np, cls=True)
+        result = ocr_engine.ocr(image_np, cls=False)
 
         extracted_lines = []
         confidences = []
