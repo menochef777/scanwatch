@@ -16,7 +16,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
     paddlepaddle==2.6.2 \
-    paddleocr>=2.7.3 \
+    paddleocr==2.7.3 \
     fastapi==0.110.0 \
     uvicorn[standard]==0.28.0 \
     python-multipart==0.0.9 \
