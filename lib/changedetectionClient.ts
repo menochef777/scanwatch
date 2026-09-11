@@ -38,12 +38,19 @@ function getConfig() {
  */
 export async function createWatch(url: string, tag?: string): Promise<{ uuid: string }> {
   const { baseUrl, headers } = getConfig();
+  const webhookBase = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://scanwatch8.vercel.app';
+  const cleanWebhook = webhookBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const notificationUrl = `json://${cleanWebhook}/api/webhooks/changedetection`;
+
   const response = await fetch(`${baseUrl}/api/v1/watch`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       url,
       tag: tag || '',
+      notification_urls: [notificationUrl],
+      notification_title: '🚨 WatchDocs: Alteração Detectada em {{ watch_url }}',
+      notification_body: 'Foi detectada uma alteração no conteúdo da página monitorada {{ watch_url }}.\n\n{{ diff }}',
     }),
   });
 

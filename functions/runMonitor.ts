@@ -76,6 +76,10 @@ export async function executeRunMonitor({
   }
 
   try {
+    const webhookBase = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://scanwatch8.vercel.app';
+    const cleanWebhook = webhookBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const notificationUrl = `json://${cleanWebhook}/api/webhooks/changedetection`;
+
     const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/api/v1/watch`, {
       method: 'POST',
       headers: {
@@ -85,6 +89,9 @@ export async function executeRunMonitor({
       body: JSON.stringify({
         url: urlCheck.normalizedUrl,
         tag: uid,
+        notification_urls: [notificationUrl],
+        notification_title: '🚨 WatchDocs: Alteração Detectada em {{ watch_url }}',
+        notification_body: 'Foi detectada uma alteração no conteúdo da página monitorada {{ watch_url }}.\n\n{{ diff }}',
       }),
     });
 
