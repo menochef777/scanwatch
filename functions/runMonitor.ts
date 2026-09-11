@@ -6,7 +6,7 @@ export interface RunMonitorInput {
   fingerprintHash: string;
   url: string;
   rawIp: string;
-  fetchClient?: typeof fetch; // Injectable for mocking / unit tests
+  fetchClient?: typeof fetch;
 }
 
 export interface RunMonitorResult {
@@ -22,7 +22,7 @@ export interface RunMonitorResult {
 }
 
 /**
- * Core RunMonitor execution logic
+ * Core RunMonitor execution logic - calls changedetection.io real API
  */
 export async function executeRunMonitor({
   uid,
@@ -31,7 +31,7 @@ export async function executeRunMonitor({
   rawIp,
   fetchClient = fetch,
 }: RunMonitorInput): Promise<RunMonitorResult> {
-  // Step 1: Validate URL first before reserving trial resources
+  // 1. Validate URL
   const urlCheck = validateTargetUrl(url);
   if (!urlCheck.isValid || !urlCheck.normalizedUrl) {
     return {
@@ -41,7 +41,7 @@ export async function executeRunMonitor({
     };
   }
 
-  // Step 2: Validate 3-layer anti-abuse trial check
+  // 2. Validate trial check
   const trialCheck = await executeCheckTrial({
     uid,
     fingerprintHash,
@@ -58,7 +58,7 @@ export async function executeRunMonitor({
     };
   }
 
-  // Step 3: Call changedetection.io
+  // 3. Call changedetection.io real API
   const serviceUrl = process.env.CHANGEDETECTION_URL;
   const token =
     process.env.CHANGEDETECTION_INTERNAL_TOKEN ||
@@ -66,15 +66,10 @@ export async function executeRunMonitor({
     '';
 
   if (!serviceUrl) {
-    // If running in local mock mode without changedetection service configured
     return {
-      success: true,
-      status: 200,
-      url: urlCheck.normalizedUrl,
-      watchId: 'mock-watch-uuid',
-      message: 'Monitoring started. You will be notified when changes are detected.',
-      snapshot: `[SNAPSHOT 200 OK]\nURL: ${urlCheck.normalizedUrl}\nCaptured: ${new Date().toISOString()}\nStatus: Active monitoring initialized.`,
-      checkedAt: new Date().toISOString(),
+      success: false,
+      status: 500,
+      error: 'CHANGEDETECTION_URL environment variable is not configured',
     };
   }
 
@@ -82,7 +77,7 @@ export async function executeRunMonitor({
     const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/api/v1/watch`, {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.CHANGEDETECTION_INTERNAL_TOKEN || process.env.CHANGEDETECTION_INTERNAL_SECRET || '',
+        'x-api-key': token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -102,8 +97,8 @@ export async function executeRunMonitor({
       status: 200,
       url: urlCheck.normalizedUrl,
       watchId: data.uuid,
-      message: 'Monitoring started. You will be notified when changes are detected.',
-      snapshot: data.snapshot || data.content || `Watch registered (UUID: ${data.uuid})`,
+      message: 'Monitoring started. Change tracking is active.',
+      snapshot: data.snapshot || data.content || (data.uuid ? `Watch UUID: ${data.uuid}` : undefined),
       checkedAt: new Date().toISOString(),
     };
   } catch (err: any) {

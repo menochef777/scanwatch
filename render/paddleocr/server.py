@@ -77,35 +77,32 @@ async def extract_text(
     # 5. Process OCR
     engine = get_ocr_engine()
     
-    # PaddleOCR processing logic
-    if engine != "mock":
-        try:
-            import numpy as np
-            from PIL import Image
-            img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
-            img_np = np.array(img)
-            result = engine.ocr(img_np, cls=True)
-            
-            extracted_lines = []
-            confidences = []
-            if result and result[0]:
-                for line in result[0]:
-                    extracted_lines.append(line[1][0])
-                    confidences.append(float(line[1][1]))
-            
-            full_text = "\n".join(extracted_lines)
-            avg_conf = sum(confidences) / len(confidences) if confidences else 0.95
-            return {
-                "text": full_text or "No text recognized in document.",
-                "confidence": round(avg_conf, 4),
-                "pages": 1
-            }
-        except Exception as e:
-            print(f"OCR execution warning: {e}")
+    if engine == "mock" or engine is None:
+        raise HTTPException(
+            status_code=503,
+            detail="PaddleOCR engine is not initialized or failed to load dependencies on this host."
+        )
 
-    # Fallback / Fast mock response
-    return {
-        "text": "[EXTRACTED DOCUMENT TEXT]\nINVOICE #WD-2026-9812\nDate: 2026-09-10\nItem: Enterprise Intelligence Subscription\nTotal Amount: $49.00 USD\nStatus: PAID",
-        "confidence": 0.985,
-        "pages": 1
-    }
+    try:
+        import numpy as np
+        from PIL import Image
+        img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
+        img_np = np.array(img)
+        result = engine.ocr(img_np, cls=True)
+        
+        extracted_lines = []
+        confidences = []
+        if result and result[0]:
+            for line in result[0]:
+                extracted_lines.append(line[1][0])
+                confidences.append(float(line[1][1]))
+        
+        full_text = "\n".join(extracted_lines)
+        avg_conf = sum(confidences) / len(confidences) if confidences else None
+        return {
+            "text": full_text or "No text recognized in document.",
+            "confidence": round(avg_conf, 4) if avg_conf is not None else None,
+            "pages": 1
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PaddleOCR execution error: {str(e)}")

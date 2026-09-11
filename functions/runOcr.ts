@@ -15,7 +15,7 @@ export interface RunOcrInput {
   fileBase64: string;
   mimeType: string;
   rawIp: string;
-  fetchClient?: typeof fetch; // Injectable for mocking / unit tests
+  fetchClient?: typeof fetch;
 }
 
 export interface RunOcrResult {
@@ -39,7 +39,7 @@ export function getBase64ByteLength(base64String: string): number {
 }
 
 /**
- * Core RunOcr execution logic
+ * Core RunOcr execution logic - calls PaddleOCR real microservice
  */
 export async function executeRunOcr({
   uid,
@@ -86,7 +86,7 @@ export async function executeRunOcr({
     };
   }
 
-  // 4. Validate 3-layer anti-abuse trial check
+  // 4. Validate trial check
   const trialCheck = await executeCheckTrial({
     uid,
     fingerprintHash,
@@ -111,14 +111,10 @@ export async function executeRunOcr({
     '';
 
   if (!serviceUrl) {
-    // If running in local mock mode without PaddleOCR service configured
     return {
-      success: true,
-      status: 200,
-      text: `[DOCUMENT OCR EXTRACTION]\nDocument Type: ${normalizedMime.toUpperCase()}\nStatus: Processed successfully\nExtracted Content:\nINVOICE #WD-2026-8491\nDate: 2026-09-10\nItem: WatchDocs Document Extraction Trial\nTotal: $0.00 USD (Trial Consumed)`,
-      confidence: 0.982,
-      pages: 1,
-      processedAt: new Date().toISOString(),
+      success: false,
+      status: 500,
+      error: 'PADDLEOCR_URL environment variable is not configured',
     };
   }
 
@@ -128,12 +124,12 @@ export async function executeRunOcr({
     const blob = new Blob([buffer], { type: normalizedMime });
     const formData = new FormData();
     formData.append('file', blob, 'document');
-    formData.append('x-internal-token', process.env.PADDLEOCR_INTERNAL_TOKEN || process.env.PADDLEOCR_INTERNAL_SECRET || '');
+    formData.append('x-internal-token', token);
 
     const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/ocr`, {
       method: 'POST',
       headers: {
-        'X-Internal-Token': process.env.PADDLEOCR_INTERNAL_TOKEN || process.env.PADDLEOCR_INTERNAL_SECRET || '',
+        'X-Internal-Token': token,
       },
       body: formData,
     });
@@ -157,8 +153,8 @@ export async function executeRunOcr({
       success: true,
       status: 200,
       text: data.text || 'No text recognized in document.',
-      confidence: data.confidence ?? 0.95,
-      pages: data.pages ?? 1,
+      confidence: typeof data.confidence === 'number' ? data.confidence : undefined,
+      pages: typeof data.pages === 'number' ? data.pages : undefined,
       processedAt: new Date().toISOString(),
     };
   } catch (err: any) {

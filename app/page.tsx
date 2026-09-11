@@ -240,14 +240,7 @@ export default function HomePage() {
             ) : isAuthenticatedAndVerified ? (
               <div className="flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
-                  <div className="flex items-center space-x-1.5 justify-end">
-                    <span className="text-xs text-slate-400">Signed in as</span>
-                    {profile?.plan === 'pro' && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500 to-indigo-500 text-white uppercase tracking-wider shadow-sm">
-                        PRO
-                      </span>
-                    )}
-                  </div>
+                  <span className="text-xs text-slate-400 block">Signed in as</span>
                   <span className="text-sm font-medium text-slate-200">{user?.email}</span>
                 </div>
                 <button
@@ -283,9 +276,9 @@ export default function HomePage() {
         {/* SEÇÃO 2: HERO (Apenas se não logado ou email não verificado) */}
         {!isAuthenticatedAndVerified && (
           <div className="py-12 sm:py-20 text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-xs font-medium mb-6">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Free Instant Trial • Multi-Layer Protected</span>
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300 text-xs font-medium mb-6">
+              <Zap className="h-3.5 w-3.5 text-indigo-400" />
+              <span>URL Monitoring & Document OCR</span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight mb-6">
@@ -296,7 +289,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
-              One free trial. No credit card. Enterprise accuracy powered by automated change detection & OCR engines.
+              Automated webpage change detection and deep learning document extraction.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -304,13 +297,13 @@ export default function HomePage() {
                 onClick={() => openAuthModal('signup')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-base bg-indigo-600 hover:bg-indigo-500 text-white shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                Get Started Free
+                Get Started
               </button>
               <button
                 onClick={() => openAuthModal('signin')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-base bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all"
               >
-                Sign In to Account
+                Sign In
               </button>
             </div>
 
@@ -342,47 +335,6 @@ export default function HomePage() {
         {/* SEÇÃO 3: APP (Aparece se logado E email verificado) */}
         {isAuthenticatedAndVerified && (
           <div className="w-full max-w-4xl mx-auto">
-            {/* Plan Status Banner */}
-            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md shadow-lg gap-3">
-              <div className="flex items-center space-x-3">
-                {profile?.plan === 'pro' ? (
-                  <>
-                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-sm text-white">PRO Plan Active</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-indigo-500 text-white tracking-wider uppercase shadow-sm">
-                          UNLIMITED
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        Zero trial limits • Unlimited page monitoring & document OCR
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-sm text-white">Free Trial Account</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                          1 MONITOR • 1 OCR
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        Free tier • Multi-layer anti-abuse trial protection active
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
             {/* Tabs Selector */}
             <div className="flex border-b border-slate-800 mb-8">
               <button
