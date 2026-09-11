@@ -14,6 +14,8 @@ export interface RunMonitorResult {
   status: number;
   snapshot?: string;
   watchId?: string;
+  title?: string;
+  domain?: string;
   message?: string;
   url?: string;
   checkedAt?: string;
@@ -92,14 +94,48 @@ export async function executeRunMonitor({
     }
 
     const data = await response.json();
+    const watchId = data.uuid || data.watchId;
+
+    // Derive readable title/domain
+    let domain = '';
+    let displayTitle = '';
+    try {
+      const parsedUrl = new URL(urlCheck.normalizedUrl);
+      domain = parsedUrl.hostname.replace(/^www\./, '');
+      displayTitle = domain.charAt(0).toUpperCase() + domain.slice(1);
+    } catch {
+      domain = urlCheck.normalizedUrl;
+      displayTitle = domain;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Persist to user's Firestore monitors collection
+    try {
+      const { adminDb } = await import('../lib/firebaseAdmin');
+      await adminDb.collection('users').doc(uid).collection('monitors').doc(watchId).set({
+        uuid: watchId,
+        url: urlCheck.normalizedUrl,
+        title: displayTitle,
+        domain,
+        status: 'monitoring',
+        createdAt: nowIso,
+        lastChecked: nowIso,
+        lastChanged: null,
+      }, { merge: true });
+    } catch (dbErr) {
+      console.warn('Could not persist monitor to Firestore:', dbErr);
+    }
+
     return {
       success: true,
       status: 200,
       url: urlCheck.normalizedUrl,
-      watchId: data.uuid,
-      message: 'Monitoring started. Change tracking is active.',
-      snapshot: data.snapshot || data.content || (data.uuid ? `Watch UUID: ${data.uuid}` : undefined),
-      checkedAt: new Date().toISOString(),
+      watchId,
+      title: displayTitle,
+      domain,
+      message: 'Monitoring started. Baseline captured successfully.',
+      checkedAt: nowIso,
     };
   } catch (err: any) {
     console.error('Changedetection service error:', err.message);
