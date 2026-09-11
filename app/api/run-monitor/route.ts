@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
         ? {
             success: true,
             snapshot: result.snapshot,
+            watchId: result.watchId,
+            message: result.message,
             url: result.url,
             checkedAt: result.checkedAt,
           }

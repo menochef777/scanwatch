@@ -13,47 +13,12 @@ export interface RunMonitorResult {
   success: boolean;
   status: number;
   snapshot?: string;
+  watchId?: string;
+  message?: string;
   url?: string;
   checkedAt?: string;
   error?: string;
   reason?: string;
-}
-
-/**
- * Service client for changedetection.io
- */
-async function fetchChangedetectionSnapshot(
-  targetUrl: string,
-  customFetch: typeof fetch = fetch
-): Promise<string> {
-  const serviceUrl = process.env.CHANGEDETECTION_URL;
-  const internalSecret = process.env.CHANGEDETECTION_INTERNAL_SECRET || 'dev_secret';
-
-  // If live service is configured, query the service
-  if (serviceUrl) {
-    try {
-      const response = await customFetch(`${serviceUrl.replace(/\/$/, '')}/api/v1/watch/single`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Token': internalSecret,
-        },
-        body: JSON.stringify({ url: targetUrl }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`changedetection.io responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.snapshot || data.content || JSON.stringify(data);
-    } catch (err: any) {
-      console.warn('Warning: Changedetection service call failed, falling back to simulated snapshot:', err.message);
-    }
-  }
-
-  // Simulated snapshot response when service is offline or in test mode
-  return `[SNAPSHOT 200 OK]\nURL: ${targetUrl}\nCaptured: ${new Date().toISOString()}\nContent-Type: text/html\n\nTitle: WatchDocs Live Target\nBody: Initial baseline snapshot recorded successfully for ${targetUrl}.\nStatus: Active monitoring initialized.`;
 }
 
 /**
@@ -93,14 +58,60 @@ export async function executeRunMonitor({
     };
   }
 
-  // Step 3: Fetch snapshot from changedetection.io
-  const snapshot = await fetchChangedetectionSnapshot(urlCheck.normalizedUrl, fetchClient);
+  // Step 3: Call changedetection.io
+  const serviceUrl = process.env.CHANGEDETECTION_URL;
+  const token =
+    process.env.CHANGEDETECTION_INTERNAL_TOKEN ||
+    process.env.CHANGEDETECTION_INTERNAL_SECRET ||
+    '';
 
-  return {
-    success: true,
-    status: 200,
-    url: urlCheck.normalizedUrl,
-    snapshot,
-    checkedAt: new Date().toISOString(),
-  };
+  if (!serviceUrl) {
+    // If running in local mock mode without changedetection service configured
+    return {
+      success: true,
+      status: 200,
+      url: urlCheck.normalizedUrl,
+      watchId: 'mock-watch-uuid',
+      message: 'Monitoring started. You will be notified when changes are detected.',
+      snapshot: `[SNAPSHOT 200 OK]\nURL: ${urlCheck.normalizedUrl}\nCaptured: ${new Date().toISOString()}\nStatus: Active monitoring initialized.`,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  try {
+    const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/api/v1/watch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': token,
+      },
+      body: JSON.stringify({
+        url: urlCheck.normalizedUrl,
+        tag: uid,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`changedetection.io returned ${response.status}${errText ? `: ${errText}` : ''}`);
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      status: 200,
+      url: urlCheck.normalizedUrl,
+      watchId: data.uuid,
+      message: 'Monitoring started. You will be notified when changes are detected.',
+      snapshot: data.snapshot || data.content || `Watch registered (UUID: ${data.uuid})`,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch (err: any) {
+    console.error('Changedetection service error:', err.message);
+    return {
+      success: false,
+      status: 500,
+      error: `Monitoring service call failed: ${err.message}`,
+    };
+  }
 }

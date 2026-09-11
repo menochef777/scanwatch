@@ -40,6 +40,8 @@ export default function HomePage() {
   const [monitorResult, setMonitorResult] = useState<{
     success?: boolean;
     snapshot?: string;
+    watchId?: string;
+    message?: string;
     url?: string;
     checkedAt?: string;
   } | null>(null);
@@ -445,25 +447,37 @@ export default function HomePage() {
                 )}
 
                 {/* RESULT AREA */}
-                {monitorResult && monitorResult.snapshot && (
+                {monitorResult && (monitorResult.snapshot || monitorResult.message || monitorResult.watchId) && (
                   <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                       <div className="flex items-center space-x-2">
                         <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                        <h3 className="font-semibold text-white text-base">Baseline Snapshot Captured</h3>
+                        <h3 className="font-semibold text-white text-base">Monitoring Active</h3>
                       </div>
                       <span className="text-xs text-slate-500">
                         {monitorResult.checkedAt ? new Date(monitorResult.checkedAt).toLocaleTimeString() : 'Just now'}
                       </span>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                        Extracted Page Content
-                      </label>
-                      <pre className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-96">
-                        {monitorResult.snapshot}
-                      </pre>
-                    </div>
+                    {monitorResult.message && (
+                      <p className="text-sm text-emerald-400 font-medium">
+                        {monitorResult.message}
+                      </p>
+                    )}
+                    {monitorResult.watchId && (
+                      <p className="text-xs text-slate-400 font-mono">
+                        Watch ID: <span className="text-slate-300">{monitorResult.watchId}</span>
+                      </p>
+                    )}
+                    {monitorResult.snapshot && (
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                          Extracted Page Content
+                        </label>
+                        <pre className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-96">
+                          {monitorResult.snapshot}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

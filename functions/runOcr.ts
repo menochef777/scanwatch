@@ -39,50 +39,6 @@ export function getBase64ByteLength(base64String: string): number {
 }
 
 /**
- * Calls remote PaddleOCR microservice on Render
- */
-async function callPaddleOcrService(
-  fileBase64: string,
-  mimeType: string,
-  customFetch: typeof fetch = fetch
-): Promise<{ text: string; confidence: number; pages: number }> {
-  const serviceUrl = process.env.PADDLEOCR_URL;
-  const internalSecret = process.env.PADDLEOCR_INTERNAL_SECRET || 'dev_secret';
-
-  if (serviceUrl) {
-    const response = await customFetch(`${serviceUrl.replace(/\/$/, '')}/ocr`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-Token': internalSecret,
-      },
-      body: JSON.stringify({
-        base64: fileBase64,
-        mimeType,
-      }),
-    });
-
-    if (response.status === 401) {
-      throw new Error('401: Unauthorized - Invalid or missing X-Internal-Token');
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`PaddleOCR service returned ${response.status}: ${errText}`);
-    }
-
-    return await response.json();
-  }
-
-  // Simulated OCR response when service is offline or in mock test mode
-  return {
-    text: `[DOCUMENT OCR EXTRACTION]\nDocument Type: ${mimeType.toUpperCase()}\nStatus: Processed successfully\nExtracted Content:\nINVOICE #WD-2026-8491\nDate: 2026-09-10\nItem: WatchDocs Document Extraction Trial\nTotal: $0.00 USD (Trial Consumed)`,
-    confidence: 0.982,
-    pages: 1,
-  };
-}
-
-/**
  * Core RunOcr execution logic
  */
 export async function executeRunOcr({
@@ -148,26 +104,62 @@ export async function executeRunOcr({
   }
 
   // 5. Call PaddleOCR microservice
-  try {
-    const ocrData = await callPaddleOcrService(fileBase64, normalizedMime, fetchClient);
+  const serviceUrl = process.env.PADDLEOCR_URL;
+  const token =
+    process.env.PADDLEOCR_INTERNAL_TOKEN ||
+    process.env.PADDLEOCR_INTERNAL_SECRET ||
+    '';
 
+  if (!serviceUrl) {
+    // If running in local mock mode without PaddleOCR service configured
     return {
       success: true,
       status: 200,
-      text: ocrData.text,
-      confidence: ocrData.confidence,
-      pages: ocrData.pages,
+      text: `[DOCUMENT OCR EXTRACTION]\nDocument Type: ${normalizedMime.toUpperCase()}\nStatus: Processed successfully\nExtracted Content:\nINVOICE #WD-2026-8491\nDate: 2026-09-10\nItem: WatchDocs Document Extraction Trial\nTotal: $0.00 USD (Trial Consumed)`,
+      confidence: 0.982,
+      pages: 1,
       processedAt: new Date().toISOString(),
     };
-  } catch (err: any) {
-    console.error('OCR processing error:', err.message);
-    if (err.message && err.message.startsWith('401:')) {
+  }
+
+  try {
+    const response = await fetchClient(`${serviceUrl.replace(/\/$/, '')}/ocr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Token': token,
+      },
+      body: JSON.stringify({
+        base64: fileBase64,
+        mimeType: normalizedMime,
+      }),
+    });
+
+    if (response.status === 401) {
       return {
         success: false,
         status: 401,
         error: 'PaddleOCR Service Authentication Failed (Invalid X-Internal-Token)',
       };
     }
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`PaddleOCR service returned ${response.status}${errText ? `: ${errText}` : ''}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      success: true,
+      status: 200,
+      text: data.text || 'No text recognized in document.',
+      confidence: data.confidence ?? 0.95,
+      pages: data.pages ?? 1,
+      processedAt: new Date().toISOString(),
+    };
+  } catch (err: any) {
+    console.error('OCR processing error:', err.message);
     return {
       success: false,
       status: 500,
