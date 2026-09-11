@@ -61,6 +61,10 @@ export async function executeCheckTrial({
   // Check 1: User document exists and trial already consumed for this action
   if (userSnap.exists) {
     const userData = userSnap.data() || {};
+    // Paid / Pro plan users bypass trial restrictions completely
+    if (userData.plan && userData.plan !== 'free') {
+      return { allowed: true };
+    }
     if (action === 'monitor' && userData.trialMonitorUsed) {
       return { allowed: false, reason: 'trial_used' };
     }
@@ -90,6 +94,10 @@ export async function executeCheckTrial({
 
       if (tUserSnap.exists) {
         const uData = tUserSnap.data() || {};
+        // Paid / Pro plan users bypass trial restrictions completely
+        if (uData.plan && uData.plan !== 'free') {
+          return { allowed: true };
+        }
         if (action === 'monitor' && uData.trialMonitorUsed) {
           return { allowed: false, reason: 'trial_used' };
         }
