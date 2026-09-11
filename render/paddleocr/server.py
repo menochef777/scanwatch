@@ -13,11 +13,13 @@ INTERNAL_SECRET = os.getenv("INTERNAL_SECRET", "dev_secret")
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "application/pdf"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
-# Initialize PaddleOCR engine at module startup
+# Initialize PaddleOCR engine at runtime startup
+init_error = None
 try:
     ocr_engine = PaddleOCR(use_angle_cls=True, lang="en")
     print(f"[PaddleOCR] Engine initialized successfully. PaddlePaddle version: {paddle.__version__}")
 except Exception as e:
+    init_error = str(e)
     print(f"[PaddleOCR ERROR] Failed to initialize PaddleOCR engine: {e}")
     ocr_engine = None
 
@@ -26,9 +28,11 @@ def health():
     return {
         "status": "ok" if ocr_engine is not None else "error",
         "service": "paddleocr-microservice",
-        "paddle_version": paddle.__version__,
+        "paddle_version": getattr(paddle, "__version__", "unknown"),
         "engine_ready": ocr_engine is not None,
+        "init_error": init_error,
     }
+
 
 @app.post("/ocr")
 async def extract_text(
@@ -43,7 +47,7 @@ async def extract_text(
     if ocr_engine is None:
         raise HTTPException(
             status_code=503,
-            detail="PaddleOCR engine failed to initialize on startup."
+            detail=f"PaddleOCR engine failed to initialize on startup: {init_error}" if init_error else "PaddleOCR engine failed to initialize on startup."
         )
 
     # 3. Validate file upload

@@ -26,9 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY server.py .
 
-# Pre-download PaddleOCR models during image build to verify engine initialization
-RUN python3 -c "import paddle; from paddleocr import PaddleOCR; print('Paddle version:', paddle.__version__); ocr = PaddleOCR(use_angle_cls=True, lang='en'); print('PaddleOCR initialized successfully')"
-
 EXPOSE 8000
 
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+
