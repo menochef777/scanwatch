@@ -13,14 +13,16 @@ export interface CheckTrialInput {
 
 export interface CheckTrialResult {
   allowed: boolean;
+  plan?: string;
   reason?: string;
   error?: string;
 }
 
 /**
  * Core trial validation engine running strictly on the backend.
- * Checks 3 layers: UID trial flag, IP hash, and Device Fingerprint hash.
- * If all 3 are clean, records usage in an atomic Firestore transaction.
+ * 1. Checks user plan in Firestore first (Pro / Basic bypasses all trial restrictions).
+ * 2. If plan is free, checks 3 layers: UID trial flag, IP hash, and Device Fingerprint hash.
+ * 3. If all clean, records usage in an atomic Firestore transaction.
  */
 export async function executeCheckTrial({
   uid,
@@ -44,46 +46,54 @@ export async function executeCheckTrial({
     return { allowed: false, error: 'Unable to determine client IP address' };
   }
 
+  // 1. Busca o documento do usuário primeiro
+  const userRef = adminDb.collection('users').doc(uid);
+  const userDoc = await userRef.get();
+  const userData = userDoc.data();
+
+  // 2. Se tem plano pago, libera imediatamente sem checar trial, IP ou fingerprint
+  if (
+    userData?.plan === 'pro' ||
+    userData?.plan === 'basic' ||
+    (userData?.plan && userData.plan !== 'free') ||
+    userData?.role === 'admin'
+  ) {
+    return { allowed: true, plan: userData?.plan || 'pro' };
+  }
+
+  // 3. Checa se o usuário free já consumiu o trial desta ação
+  if (userDoc.exists) {
+    if (action === 'monitor' && userData?.trialMonitorUsed) {
+      return { allowed: false, reason: 'trial_used' };
+    }
+    if (action === 'ocr' && userData?.trialOCRUsed) {
+      return { allowed: false, reason: 'trial_used' };
+    }
+  }
+
+  // 4. Checa camadas de anti-abuso de IP e Fingerprint para usuários free
   const ipHash = hashIp(rawIp);
   const normalizedFpHash = fingerprintHash.trim().toLowerCase();
 
-  const userRef = adminDb.collection('users').doc(uid);
   const ipRef = adminDb.collection('ips').doc(ipHash);
   const fpRef = adminDb.collection('fingerprints').doc(normalizedFpHash);
 
-  // Run initial parallel lookup for fast blocking
-  const [userSnap, ipSnap, fpSnap] = await Promise.all([
-    userRef.get(),
+  const [ipSnap, fpSnap] = await Promise.all([
     ipRef.get(),
     fpRef.get(),
   ]);
 
-  // Check 1: User document exists and trial already consumed for this action
-  if (userSnap.exists) {
-    const userData = userSnap.data() || {};
-    // Paid / Pro plan users bypass trial restrictions completely
-    if (userData.plan && userData.plan !== 'free') {
-      return { allowed: true };
-    }
-    if (action === 'monitor' && userData.trialMonitorUsed) {
-      return { allowed: false, reason: 'trial_used' };
-    }
-    if (action === 'ocr' && userData.trialOCRUsed) {
-      return { allowed: false, reason: 'trial_used' };
-    }
-  }
-
-  // Check 2: IP hash already exists in anti-abuse logs
+  // Check IP hash
   if (ipSnap.exists) {
     return { allowed: false, reason: 'trial_used' };
   }
 
-  // Check 3: Device Fingerprint hash already exists in anti-abuse logs
+  // Check Fingerprint hash
   if (fpSnap.exists) {
     return { allowed: false, reason: 'trial_used' };
   }
 
-  // All 3 checks passed -> perform atomic transaction to reserve trial and write records
+  // 5. Executa transação atômica para reservar o trial do usuário free
   try {
     const transactionResult = await adminDb.runTransaction(async (transaction) => {
       const [tUserSnap, tIpSnap, tFpSnap] = await Promise.all([
@@ -94,9 +104,9 @@ export async function executeCheckTrial({
 
       if (tUserSnap.exists) {
         const uData = tUserSnap.data() || {};
-        // Paid / Pro plan users bypass trial restrictions completely
-        if (uData.plan && uData.plan !== 'free') {
-          return { allowed: true };
+        // Se foi atualizado para plano pago nesse ínterim, libera
+        if (uData.plan === 'pro' || uData.plan === 'basic' || (uData.plan && uData.plan !== 'free') || uData.role === 'admin') {
+          return { allowed: true, plan: uData.plan || 'pro' };
         }
         if (action === 'monitor' && uData.trialMonitorUsed) {
           return { allowed: false, reason: 'trial_used' };
@@ -142,7 +152,7 @@ export async function executeCheckTrial({
         usedAt: timestamp,
       });
 
-      return { allowed: true };
+      return { allowed: true, plan: 'free' };
     });
 
     return transactionResult;
